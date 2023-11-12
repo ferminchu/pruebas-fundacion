@@ -1,0 +1,86 @@
+#Zona de declaracion de objetos
+
+from tkinter import Tk, Button, Entry, Label, StringVar, messagebox
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, hmac
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from base64 import urlsafe_b64encode, urlsafe_b64decode
+
+#################################################################
+### clase de encriptacion
+#################################################################
+class EncryptionApp:
+    def __init__(self, master):
+        #creacion de la ventana y objetos
+        self.master = master
+        master.title("Encriptador/Desencriptador")
+        self.label_password = Label(master, text="Contraseña:")
+        self.label_password.pack()
+        self.password_entry = Entry(master, show="*", width=100)
+        self.password_entry.pack()
+        self.label_text = Label(master, text="Texto:")
+        self.label_text.pack()
+        self.text_entry = Entry(master, width=100)
+        self.text_entry.pack()
+        self.result_entry = Entry(master, width=100, state='readonly')
+        self.result_entry.pack()
+        self.encrypt_button = Button(master, text="Encriptar", command=self.encrypt_text)
+        self.encrypt_button.pack()
+        self.decrypt_button = Button(master, text="Desencriptar", command=self.decrypt_text)
+        self.decrypt_button.pack()
+    #Funcion de control del cudro de resultados en la encriptacion
+    def encrypt_text(self):
+        password = self.password_entry.get()
+        text_to_encrypt = self.text_entry.get()
+        try:
+            encrypted_text = encrypt(text_to_encrypt, password)
+            self.result_entry.config(state='normal')  # Habilitar la entrada para la escritura
+            self.result_entry.delete(0, 'end')  # Limpiar la entrada
+            self.result_entry.insert(0, encrypted_text)  # Insertar el texto encriptado
+            self.result_entry.config(state='readonly')  # Deshabilitar la entrada para la escritura
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al encriptar:\n{str(e)}")
+    #Funcion de control del cudro de resultados en la encriptacion
+    def decrypt_text(self):
+        password = self.password_entry.get()
+        text_to_decrypt = self.text_entry.get()
+        try:
+            decrypted_text = decrypt(text_to_decrypt, password)
+            self.result_entry.config(state='normal')  # Habilitar la entrada para la escritura
+            self.result_entry.delete(0, 'end')  # Limpiar la entrada
+            self.result_entry.insert(0, decrypted_text)  # Insertar el texto desencriptado
+            self.result_entry.config(state='readonly')  # Deshabilitar la entrada para la escritura
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al desencriptar:\n{str(e)}")
+    #Funcion de encriptacion
+    def encrypt(text, password):
+        key = derive_key(password)
+        iv = generate_iv()
+        cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(text.encode('utf-8')) + encryptor.finalize()
+        return urlsafe_b64encode(iv + encryptor.tag + ciphertext).decode('utf-8')
+    #Funcion de desencriptado
+    def decrypt(ciphertext, password):
+        data = urlsafe_b64decode(ciphertext)
+        key = derive_key(password)
+        iv = data[:16]
+        tag = data[16:32]
+        ciphertext = data[32:]
+        cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend())
+        decryptor = cipher.decryptor()
+        decrypted_text = decryptor.update(ciphertext) + decryptor.finalize()
+        return decrypted_text.decode('utf-8')
+    def derive_key(password):
+        h = hmac.HMAC(password.encode('utf-8'), hashes.SHA256(), backend=default_backend())
+        key = h.finalize()
+        return key
+    def generate_iv():
+        return os.urandom(16)
+
+#Aplicacion principal
+
+if __name__ == "__main__":
+    root = Tk()
+    app = EncryptionApp(root)
+    root.mainloop()
